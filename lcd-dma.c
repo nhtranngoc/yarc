@@ -256,18 +256,3 @@ void lcd_dma_init(layer1_pixel *canvas) {
         canvas[pix] = 0xff000000;   
     }
 }
-
-/*
- * Here is where all the work is done.  We poke a total of 6 registers
- * for each frame.
- */
-
-void lcd_tft_isr(void)
-{
-	LTDC_ICR |= LTDC_ICR_CRRIF;
-
-	// mutate_background_color();
-	// move_sprite();
-
-	LTDC_SRCR |= LTDC_SRCR_VBR;
-}

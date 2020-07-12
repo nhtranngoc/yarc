@@ -20,12 +20,13 @@ typedef struct Player_ {
 	float a;
 } Player;
 
-const uint16_t rect_w = LCD_WIDTH / MAP_WIDTH;
+const uint16_t rect_w = LCD_WIDTH / (MAP_WIDTH*2);
 const uint16_t rect_h = LCD_WIDTH / MAP_HEIGHT;
 
 Player player;
 
 layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
+
 const map_t map[] =    "0000222222220000"\
                        "1              0"\
                        "1      11111   0"\
@@ -46,6 +47,8 @@ const map_t map[] =    "0000222222220000"\
 void write_pixel(uint32_t *buffer, uint16_t x, uint16_t y, uint32_t c);
 void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t c);
 void draw();
+void fill(uint32_t *buffer, uint32_t c);
+void update();
 
 int main(void) {
 	/* init timers. */
@@ -62,13 +65,33 @@ int main(void) {
 	lcd_dma_init(raycaster_canvas);
 	lcd_spi_init();
 
-	draw(); 
+	player.a = 0;
+
+	fill(raycaster_canvas, WHITE);
 
 	while (1) {
-		
+		continue;
 	}
 
 	return 0;
+}
+
+/*
+ * Here is where all the work is done.  We poke a total of 6 registers
+ * for each frame.
+ */
+
+void lcd_tft_isr(void)
+{
+	LTDC_ICR |= LTDC_ICR_CRRIF;
+
+	// mutate_background_color();
+	// move_sprite();
+	draw();
+	player.a += 0.01;
+	fill(raycaster_canvas, WHITE);
+
+	LTDC_SRCR |= LTDC_SRCR_VBR;
 }
 
 void draw() {
@@ -87,22 +110,25 @@ void draw() {
 	// Draw player
 	player.x = 3.456f;
 	player.y = 2.345f;
-	draw_rectangle(raycaster_canvas, (uint16_t) (player.x * rect_w), (uint16_t) (player.y * rect_h), 5, 5, SILVER);
 
 	// Draw cone of vision
-	player.a = 1.532;
-	for(uint16_t i = 0; i < LCD_WIDTH; i++) {
-		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH);
+	// player.a = 10;
+	for(uint16_t i = 0; i < LCD_WIDTH/2; i++) {
+		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH/2);
 		for(float c = 0; c < 20; c+=.05) {
 			float cx = player.x + c * cosf(angle);
 			float cy = player.y + c * sinf(angle);
 
-			if(map[int(cx)+int(cy)*MAP_WIDTH] != ' ') break;
-			
 			uint16_t pix_x = cx * rect_w;
 			uint16_t pix_y = cy * rect_h;
+			write_pixel(raycaster_canvas, pix_x, pix_y, GRAY);
 
-			write_pixel(raycaster_canvas, pix_x, pix_y, WHITE);
+			if(map[int(cx) + int(cy) * MAP_WIDTH] != ' ') {
+				// Our ray intersects a wall, so let's render it
+				uint16_t column_height = LCD_HEIGHT/c;
+				draw_rectangle(raycaster_canvas, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, GREEN);
+				break;
+			}
 		}
 	}
 }
@@ -118,6 +144,14 @@ void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16
 	for(uint16_t i = 0; i < w; i++) {
 		for(uint16_t j = 0; j < h; j++) {
 			write_pixel(buffer, x + i, y + j, c);
+		}
+	}
+}
+
+void fill(uint32_t *buffer, uint32_t c) {
+	for(uint16_t i = 0; i < LCD_WIDTH; i++) {
+		for(uint16_t j = 0; j < LCD_HEIGHT; j++) {
+			buffer[j+i*LCD_HEIGHT] = c;
 		}
 	}
 }
