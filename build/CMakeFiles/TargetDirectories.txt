@@ -1,5 +1,0 @@
-/home/batnam/yarc/build/CMakeFiles/rebuild_cache.dir
-/home/batnam/yarc/build/CMakeFiles/yarc.bin.dir
-/home/batnam/yarc/build/CMakeFiles/edit_cache.dir
-/home/batnam/yarc/build/CMakeFiles/libopencm3.dir
-/home/batnam/yarc/build/CMakeFiles/yarc.elf.dir
