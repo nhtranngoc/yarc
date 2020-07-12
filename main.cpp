@@ -26,6 +26,7 @@ const uint16_t rect_h = LCD_WIDTH / MAP_HEIGHT;
 Player player;
 
 layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
+layer1_pixel *const buffer = (uint32_t *)SDRAM_BASE_ADDRESS + (LCD_HEIGHT * LCD_WIDTH * sizeof(layer1_pixel));
 
 const map_t map[] =    "0000222222220000"\
                        "1              0"\
@@ -67,7 +68,10 @@ int main(void) {
 
 	player.a = 0;
 
-	fill(raycaster_canvas, WHITE);
+	// buffer = (layer1_pixel *) malloc(sizeof(layer1_pixel) * LCD_WIDTH * LCD_HEIGHT);
+	fill(buffer, WHITE);
+
+	fill(raycaster_canvas, GREEN);
 
 	while (1) {
 		continue;
@@ -88,13 +92,14 @@ void lcd_tft_isr(void)
 	// mutate_background_color();
 	// move_sprite();
 	draw();
-	player.a += 0.01;
-	fill(raycaster_canvas, WHITE);
+	memcpy(raycaster_canvas, buffer, LCD_WIDTH * LCD_HEIGHT * 4);
+	player.a += 0.03;
 
 	LTDC_SRCR |= LTDC_SRCR_VBR;
 }
 
 void draw() {
+	fill(buffer, WHITE);
 	// Draw map
 	for(uint16_t j = 0; j < MAP_HEIGHT; j++) {
 		for(uint16_t i = 0; i < MAP_WIDTH; i++) {
@@ -102,7 +107,7 @@ void draw() {
 				uint16_t rect_x  = i * rect_w;
 				uint16_t rect_y = j * rect_h;
 
-				draw_rectangle(raycaster_canvas, rect_x, rect_y, rect_w, rect_h, GREEN);
+				draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, GREEN);
 			}
 		}
 	}
@@ -121,12 +126,12 @@ void draw() {
 
 			uint16_t pix_x = cx * rect_w;
 			uint16_t pix_y = cy * rect_h;
-			write_pixel(raycaster_canvas, pix_x, pix_y, GRAY);
+			write_pixel(buffer, pix_x, pix_y, GRAY);
 
 			if(map[int(cx) + int(cy) * MAP_WIDTH] != ' ') {
 				// Our ray intersects a wall, so let's render it
-				uint16_t column_height = LCD_HEIGHT/c;
-				draw_rectangle(raycaster_canvas, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, GREEN);
+				uint16_t column_height = LCD_HEIGHT/(c*cosf(angle-player.a));
+				draw_rectangle(buffer, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, GREEN);
 				break;
 			}
 		}
