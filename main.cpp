@@ -6,12 +6,23 @@
 #include "sdram.h"
 #include "lcd-dma.h"
 
+#include <math.h>
+
 typedef char map_t;
 #define MAP_WIDTH 	16
 #define MAP_HEIGHT 	16
+#define PI 3.1415
+
+typedef struct Player_ {
+	float x;
+	float y;
+	float a;
+} Player;
 
 const uint16_t rect_w = LCD_WIDTH / MAP_WIDTH;
 const uint16_t rect_h = LCD_WIDTH / MAP_HEIGHT;
+
+Player player;
 
 layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
 const map_t map[] =    "0000222222220000"\
@@ -60,6 +71,7 @@ int main(void) {
 }
 
 void draw() {
+	// Draw map
 	for(uint16_t j = 0; j < MAP_HEIGHT; j++) {
 		for(uint16_t i = 0; i < MAP_WIDTH; i++) {
 			if(map[i+j*MAP_WIDTH] != ' ') {
@@ -69,6 +81,25 @@ void draw() {
 				draw_rectangle(raycaster_canvas, rect_x, rect_y, rect_w, rect_h, GREEN);
 			}
 		}
+	}
+
+	// Draw player
+	player.x = 3.456f;
+	player.y = 2.345f;
+	draw_rectangle(raycaster_canvas, (uint16_t) (player.x * rect_w), (uint16_t) (player.y * rect_h), 5, 5, SILVER);
+
+	// Draw cone of vision
+	player.a = 1.532;
+	for(float c = 0; c < 20; c+=.05) {
+		float cx = player.x + c * cosf(player.a);
+		float cy = player.y + c * sinf(player.a);
+
+		if(map[int(cx)+int(cy)*MAP_WIDTH] != ' ') break;
+
+		uint16_t pix_x = cx * rect_w;
+		uint16_t pix_y = cy * rect_h;
+
+		write_pixel(raycaster_canvas, pix_x, pix_y, WHITE);
 	}
 }
 
