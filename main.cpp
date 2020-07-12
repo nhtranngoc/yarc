@@ -12,6 +12,7 @@ typedef char map_t;
 #define MAP_WIDTH 	16
 #define MAP_HEIGHT 	16
 #define PI 3.1415
+#define FOV PI/3.f
 
 typedef struct Player_ {
 	float x;
@@ -90,16 +91,19 @@ void draw() {
 
 	// Draw cone of vision
 	player.a = 1.532;
-	for(float c = 0; c < 20; c+=.05) {
-		float cx = player.x + c * cosf(player.a);
-		float cy = player.y + c * sinf(player.a);
+	for(uint16_t i = 0; i < LCD_WIDTH; i++) {
+		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH);
+		for(float c = 0; c < 20; c+=.05) {
+			float cx = player.x + c * cosf(angle);
+			float cy = player.y + c * sinf(angle);
 
-		if(map[int(cx)+int(cy)*MAP_WIDTH] != ' ') break;
+			if(map[int(cx)+int(cy)*MAP_WIDTH] != ' ') break;
+			
+			uint16_t pix_x = cx * rect_w;
+			uint16_t pix_y = cy * rect_h;
 
-		uint16_t pix_x = cx * rect_w;
-		uint16_t pix_y = cy * rect_h;
-
-		write_pixel(raycaster_canvas, pix_x, pix_y, WHITE);
+			write_pixel(raycaster_canvas, pix_x, pix_y, WHITE);
+		}
 	}
 }
 
