@@ -49,7 +49,7 @@ void write_pixel(uint32_t *buffer, uint16_t x, uint16_t y, uint32_t c);
 void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t c);
 void draw();
 void fill(uint32_t *buffer, uint32_t c);
-void update();
+uint32_t map_to_color(map_t pixel);
 
 int main(void) {
 	/* init timers. */
@@ -94,20 +94,25 @@ void lcd_tft_isr(void)
 	draw();
 	memcpy(raycaster_canvas, buffer, LCD_WIDTH * LCD_HEIGHT * 4);
 	player.a += 0.03;
+	if(player.a > 2*PI) {
+		player.a = 0;
+	}
 
 	LTDC_SRCR |= LTDC_SRCR_VBR;
 }
 
 void draw() {
 	fill(buffer, WHITE);
+	map_t pixel;
 	// Draw map
 	for(uint16_t j = 0; j < MAP_HEIGHT; j++) {
 		for(uint16_t i = 0; i < MAP_WIDTH; i++) {
-			if(map[i+j*MAP_WIDTH] != ' ') {
+			pixel = map[i+j*MAP_WIDTH];
+			if(pixel != ' ') {
 				uint16_t rect_x  = i * rect_w;
 				uint16_t rect_y = j * rect_h;
 
-				draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, GREEN);
+				draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, map_to_color(pixel));
 			}
 		}
 	}
@@ -117,7 +122,6 @@ void draw() {
 	player.y = 2.345f;
 
 	// Draw cone of vision
-	// player.a = 10;
 	for(uint16_t i = 0; i < LCD_WIDTH/2; i++) {
 		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH/2);
 		for(float c = 0; c < 20; c+=.05) {
@@ -126,12 +130,13 @@ void draw() {
 
 			uint16_t pix_x = cx * rect_w;
 			uint16_t pix_y = cy * rect_h;
-			write_pixel(buffer, pix_x, pix_y, GRAY);
+			write_pixel(buffer, pix_x, pix_y, SILVER);
 
-			if(map[int(cx) + int(cy) * MAP_WIDTH] != ' ') {
+			pixel = map[int(cx) + int(cy) * MAP_WIDTH];
+			if(pixel != ' ') {
 				// Our ray intersects a wall, so let's render it
 				uint16_t column_height = LCD_HEIGHT/(c*cosf(angle-player.a));
-				draw_rectangle(buffer, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, GREEN);
+				draw_rectangle(buffer, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, map_to_color(pixel));
 				break;
 			}
 		}
@@ -159,4 +164,16 @@ void fill(uint32_t *buffer, uint32_t c) {
 			buffer[j+i*LCD_HEIGHT] = c;
 		}
 	}
+}
+
+uint32_t map_to_color(map_t pixel) {
+	switch(pixel) {
+		case '0': return GRAY;
+		case '1': return MAROON;
+		case '2': return NAVY;
+		case '3': return PURPLE;
+	}
+
+	// default case
+	return WHITE;
 }
