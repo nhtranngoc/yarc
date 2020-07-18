@@ -63,6 +63,11 @@ typedef uint32_t layer1_pixel;
 
 extern void lcd_dma_init(layer1_pixel *canvas);
 
+void write_pixel(uint32_t *buffer, uint16_t x, uint16_t y, uint32_t c);
+void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t c);
+// void draw_line(uint32_t *buffer, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c);
+void fill(uint32_t *buffer, uint32_t c);
+
 #ifdef __cplusplus
 }
 #endif

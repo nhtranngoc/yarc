@@ -256,3 +256,26 @@ void lcd_dma_init(layer1_pixel *canvas) {
         canvas[pix] = 0xff000000;   
     }
 }
+
+void write_pixel(uint32_t *buffer, uint16_t x, uint16_t y, uint32_t c) {
+    // Due to how the on-board LCD is mapped, we want to flip the coordinates   
+    uint16_t pixel = x * LCD_WIDTH + y;
+
+    buffer[pixel] = c;
+}
+
+void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t c) {
+	for(uint16_t i = 0; i < w; i++) {
+		for(uint16_t j = 0; j < h; j++) {
+			write_pixel(buffer, x + i, y + j, c);
+		}
+	}
+}
+
+void fill(uint32_t *buffer, uint32_t c) {
+	for(uint16_t i = 0; i < LCD_WIDTH; i++) {
+		for(uint16_t j = 0; j < LCD_HEIGHT; j++) {
+			buffer[j+i*LCD_HEIGHT] = c;
+		}
+	}
+}

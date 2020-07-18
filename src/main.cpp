@@ -5,12 +5,19 @@
 #include "lcd-spi.h"
 #include "sdram.h"
 #include "lcd-dma.h"
+#include "vector"
+#include "walltext.h"
 
 #include <math.h>
+
+// #define STB_IMAGE_IMPLEMENTATION
+// #define STBI_FAILURE_USERMSG
+// #include "stb_image.h"
 
 typedef char map_t;
 #define MAP_WIDTH 	16
 #define MAP_HEIGHT 	16
+#define MAX_TEXTURE_SIZE 20480
 #define PI 3.1415
 #define FOV PI/3.f
 
@@ -22,6 +29,10 @@ typedef struct Player_ {
 
 const uint16_t rect_w = LCD_WIDTH / (MAP_WIDTH*2);
 const uint16_t rect_h = LCD_WIDTH / MAP_HEIGHT;
+
+// std::vector<uint32_t> walltext;
+// size_t walltext_size;
+// size_t walltext_cnt;
 
 Player player;
 
@@ -45,11 +56,9 @@ const map_t map[] =    "0000222222220000"\
                        "0              0"\
                        "0002222222200000";
 
-void write_pixel(uint32_t *buffer, uint16_t x, uint16_t y, uint32_t c);
-void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t c);
 void draw();
-void fill(uint32_t *buffer, uint32_t c);
 uint32_t map_to_color(map_t pixel);
+// int load_texture(const char *filename, std::vector<uint32_t> &texture, size_t &text_size, size_t &text_cnt);
 
 int main(void) {
 	/* init timers. */
@@ -66,11 +75,11 @@ int main(void) {
 	lcd_dma_init(raycaster_canvas);
 	lcd_spi_init();
 
-	player.a = 0;
+	player.x = 3.456f;
+	player.y = 2.345f;
+	player.a = PI/2;
 
-	// buffer = (layer1_pixel *) malloc(sizeof(layer1_pixel) * LCD_WIDTH * LCD_HEIGHT);
 	fill(buffer, WHITE);
-
 	fill(raycaster_canvas, GREEN);
 
 	while (1) {
@@ -85,15 +94,14 @@ int main(void) {
  * for each frame.
  */
 
-void lcd_tft_isr(void)
-{
+void lcd_tft_isr(void) {
 	LTDC_ICR |= LTDC_ICR_CRRIF;
 
 	// mutate_background_color();
 	// move_sprite();
 	draw();
 	memcpy(raycaster_canvas, buffer, LCD_WIDTH * LCD_HEIGHT * 4);
-	player.a += 0.03;
+	player.y += 0.03;
 	if(player.a > 2*PI) {
 		player.a = 0;
 	}
@@ -117,10 +125,6 @@ void draw() {
 		}
 	}
 
-	// Draw player
-	player.x = 3.456f;
-	player.y = 2.345f;
-
 	// Draw cone of vision
 	for(uint16_t i = 0; i < LCD_WIDTH/2; i++) {
 		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH/2);
@@ -128,42 +132,28 @@ void draw() {
 			float cx = player.x + c * cosf(angle);
 			float cy = player.y + c * sinf(angle);
 
-			uint16_t pix_x = cx * rect_w;
-			uint16_t pix_y = cy * rect_h;
+			uint16_t pix_x = (uint16_t) cx * rect_w;
+			uint16_t pix_y = (uint16_t) cy * rect_h;
 			write_pixel(buffer, pix_x, pix_y, SILVER);
 
 			pixel = map[int(cx) + int(cy) * MAP_WIDTH];
 			if(pixel != ' ') {
 				// Our ray intersects a wall, so let's render it
-				uint16_t column_height = LCD_HEIGHT/(c*cosf(angle-player.a));
+				uint16_t column_height = (uint16_t) (LCD_HEIGHT/(c*cosf(angle-player.a)));
 				draw_rectangle(buffer, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, map_to_color(pixel));
 				break;
 			}
 		}
 	}
-}
 
-void write_pixel(uint32_t *buffer, uint16_t x, uint16_t y, uint32_t c) {
-    // Due to how the on-board LCD is mapped, we want to flip the coordinates   
-    auto pixel = x * LCD_WIDTH + y;
-
-    buffer[pixel] = c;
-}
-
-void draw_rectangle(uint32_t *buffer, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t c) {
-	for(uint16_t i = 0; i < w; i++) {
-		for(uint16_t j = 0; j < h; j++) {
-			write_pixel(buffer, x + i, y + j, c);
+	const size_t texid = 4; // draw the 4th texture on the screen
+	const size_t walltext_cnt = walltext.width/walltext.height;	
+	for(size_t i = 0; i < walltext.height; i++) {
+		for(size_t j = 0; j < walltext.height; j++) {
+			write_pixel(buffer, i, j, walltext.data[i+texid*walltext.height + j*walltext.height*walltext_cnt]);
 		}
 	}
-}
 
-void fill(uint32_t *buffer, uint32_t c) {
-	for(uint16_t i = 0; i < LCD_WIDTH; i++) {
-		for(uint16_t j = 0; j < LCD_HEIGHT; j++) {
-			buffer[j+i*LCD_HEIGHT] = c;
-		}
-	}
 }
 
 uint32_t map_to_color(map_t pixel) {
@@ -177,3 +167,40 @@ uint32_t map_to_color(map_t pixel) {
 	// default case
 	return WHITE;
 }
+
+// int load_texture(const char *filename, std::vector<uint32_t> &texture, size_t &text_size, size_t &text_cnt) {
+// 	int nchannels = -1, w, h;
+// 	uint8_t *pixmap = stbi_load(filename, &w, &h, &nchannels, 0);
+
+// 	if(!pixmap) {
+// 		stbi_image_free(pixmap);
+// 		return -1;
+// 	}
+// 	if(nchannels != 4) {
+// 		stbi_image_free(pixmap);
+// 		return -1;
+// 	} 
+
+// 	text_cnt = w/h;
+// 	text_size = w/text_cnt;
+
+// 	if(h * int(text_cnt) != w) {
+// 		stbi_image_free(pixmap);
+// 		return -1;
+// 	}
+
+// 	texture = std::vector<uint32_t>(w*h);
+// 	for(int i = 0; i < w; i++) {
+// 		for(int j = 0; j < h; j++) {
+// 			uint8_t r = pixmap[(i*h+j)*4 + 0];
+// 			uint8_t g = pixmap[(i*h+j)*4 + 1];
+// 			uint8_t b = pixmap[(i*h+j)*4 + 2];
+// 			uint8_t a = pixmap[(i*h+j)*4 + 3];
+
+// 			texture[i*h+j] = (a << 24) | (r << 16) | (g << 8) | b;
+// 		}
+// 	}
+
+// 	stbi_image_free(pixmap);
+// 	return 0;
+// }
