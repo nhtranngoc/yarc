@@ -50,6 +50,7 @@ const map_t map[] =    "0000222222220000"\
 
 void draw();
 uint32_t map_to_color(map_t pixel);
+std::vector<uint32_t> texture_column(tImage *texture, const size_t texid, const size_t texcoord, const size_t column_height);
 
 int main(void) {
 	/* init timers. */
@@ -90,7 +91,8 @@ void lcd_tft_isr(void) {
 
 	draw();
 	memcpy(raycaster_canvas, buffer, LCD_WIDTH * LCD_HEIGHT * 4);
-	player.y += 0.03;
+	// player.y += 0.03;
+	player.a += 0.05;
 	if(player.a > 2*PI) {
 		player.a = 0;
 	}
@@ -129,7 +131,28 @@ void draw() {
 			if(pixel != ' ') {
 				// Our ray intersects a wall, so let's render it
 				uint16_t column_height = (uint16_t) (LCD_HEIGHT/(c*cosf(angle-player.a)));
-				draw_rectangle(buffer, LCD_WIDTH/2+i, LCD_HEIGHT/2-column_height/2, 1, column_height, map_to_color(pixel));
+				size_t texid = pixel - '0';
+
+				float hitx = cx - floor(cx + .5f);
+				float hity = cy - floor(cy + .5f);
+				uint16_t x_texcoord = hitx * walltext.height;
+
+				if(std::abs(hity) > std::abs(hitx)) {
+					x_texcoord = hity * walltext.height;
+				}
+
+				if(x_texcoord < 0) {
+					x_texcoord += walltext.height;
+				}
+
+				std::vector<uint32_t> column = texture_column(&walltext, texid, x_texcoord, column_height);
+				pix_x = LCD_WIDTH/2+i;
+				
+				for(size_t j = 0; j < column_height; j++) {
+					pix_y = j + LCD_HEIGHT/2 - column_height/2;
+					write_pixel(buffer, pix_x, pix_y, column[j]);
+				}
+
 				break;
 			}
 		}
@@ -148,4 +171,16 @@ void draw() {
 uint32_t map_to_color(map_t square) {
 	size_t texid = square - '0'; // who needs parseInt()
 	return walltext.data[walltext.height*texid];
+}
+
+std::vector<uint32_t> texture_column(tImage *texture, const size_t texid, const size_t texcoord, const size_t column_height) {
+	std::vector<uint32_t> column(column_height);
+	for(size_t y = 0; y < column_height; y++) {
+		size_t pix_x = texid * texture->height + texcoord;
+		size_t pix_y = (y * texture->height)/ column_height;
+
+		column[y] = texture->data[pix_x + pix_y * texture->width];
+	}
+
+	return column;
 }
