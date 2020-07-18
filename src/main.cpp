@@ -10,10 +10,6 @@
 
 #include <math.h>
 
-// #define STB_IMAGE_IMPLEMENTATION
-// #define STBI_FAILURE_USERMSG
-// #include "stb_image.h"
-
 typedef char map_t;
 #define MAP_WIDTH 	16
 #define MAP_HEIGHT 	16
@@ -30,10 +26,6 @@ typedef struct Player_ {
 const uint16_t rect_w = LCD_WIDTH / (MAP_WIDTH*2);
 const uint16_t rect_h = LCD_WIDTH / MAP_HEIGHT;
 
-// std::vector<uint32_t> walltext;
-// size_t walltext_size;
-// size_t walltext_cnt;
-
 Player player;
 
 layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
@@ -46,9 +38,9 @@ const map_t map[] =    "0000222222220000"\
                        "0     0  1110000"\
                        "0     3        0"\
                        "0   10000      0"\
-                       "0   0   11100  0"\
-                       "0   0   0      0"\
-                       "0   0   1  00000"\
+                       "0   3   11100  0"\
+                       "5   4   0      0"\
+                       "5   4   1  00000"\
                        "0       1      0"\
                        "2       1      0"\
                        "0       0      0"\
@@ -58,7 +50,6 @@ const map_t map[] =    "0000222222220000"\
 
 void draw();
 uint32_t map_to_color(map_t pixel);
-// int load_texture(const char *filename, std::vector<uint32_t> &texture, size_t &text_size, size_t &text_cnt);
 
 int main(void) {
 	/* init timers. */
@@ -97,8 +88,6 @@ int main(void) {
 void lcd_tft_isr(void) {
 	LTDC_ICR |= LTDC_ICR_CRRIF;
 
-	// mutate_background_color();
-	// move_sprite();
 	draw();
 	memcpy(raycaster_canvas, buffer, LCD_WIDTH * LCD_HEIGHT * 4);
 	player.y += 0.03;
@@ -156,51 +145,7 @@ void draw() {
 
 }
 
-uint32_t map_to_color(map_t pixel) {
-	switch(pixel) {
-		case '0': return GRAY;
-		case '1': return MAROON;
-		case '2': return NAVY;
-		case '3': return PURPLE;
-	}
-
-	// default case
-	return WHITE;
+uint32_t map_to_color(map_t square) {
+	size_t texid = square - '0'; // who needs parseInt()
+	return walltext.data[walltext.height*texid];
 }
-
-// int load_texture(const char *filename, std::vector<uint32_t> &texture, size_t &text_size, size_t &text_cnt) {
-// 	int nchannels = -1, w, h;
-// 	uint8_t *pixmap = stbi_load(filename, &w, &h, &nchannels, 0);
-
-// 	if(!pixmap) {
-// 		stbi_image_free(pixmap);
-// 		return -1;
-// 	}
-// 	if(nchannels != 4) {
-// 		stbi_image_free(pixmap);
-// 		return -1;
-// 	} 
-
-// 	text_cnt = w/h;
-// 	text_size = w/text_cnt;
-
-// 	if(h * int(text_cnt) != w) {
-// 		stbi_image_free(pixmap);
-// 		return -1;
-// 	}
-
-// 	texture = std::vector<uint32_t>(w*h);
-// 	for(int i = 0; i < w; i++) {
-// 		for(int j = 0; j < h; j++) {
-// 			uint8_t r = pixmap[(i*h+j)*4 + 0];
-// 			uint8_t g = pixmap[(i*h+j)*4 + 1];
-// 			uint8_t b = pixmap[(i*h+j)*4 + 2];
-// 			uint8_t a = pixmap[(i*h+j)*4 + 3];
-
-// 			texture[i*h+j] = (a << 24) | (r << 16) | (g << 8) | b;
-// 		}
-// 	}
-
-// 	stbi_image_free(pixmap);
-// 	return 0;
-// }
