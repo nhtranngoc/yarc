@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stdint.h"
+#include "vector"
 
 class Texture {
     public:
@@ -14,4 +15,7 @@ class Texture {
         h(h_),
         size(size_),
         count(w_/h_) {}
+
+    uint32_t Get(uint16_t x, uint16_t y) {return this->data[x + y*w];}
+    std::vector<uint32_t> GetColumnScaled(const uint16_t, const uint16_t, const uint16_t);
 };

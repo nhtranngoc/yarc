@@ -46,10 +46,9 @@ include_directories(../include/lcd)
 include_directories(../assets)
 
 file(GLOB USER_SOURCES 
-    ./*.c 
-    ./*.cpp
-    ./lcd/*.c
-    ./lcd/*.cpp
+    ${CMAKE_SOURCE_DIR}/src/*.c
+    ${CMAKE_SOURCE_DIR}/src/*.cpp
+    ${CMAKE_SOURCE_DIR}/src/lcd/*.c
     ${CMAKE_SOURCE_DIR}/assets/*.h)
 
 add_executable(${PROJECT_NAME}.elf ${USER_SOURCES})

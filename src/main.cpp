@@ -8,30 +8,25 @@
 #include "lcd-dma.h"
 
 #include "map.h"
+#include "texture.h"
+#include "player.h"
 
 #include "walltext.h"
 
-#define PI 3.1415
+#define PI 3.1415f
 #define FOV PI/3.f
 
 Map map;
-
-typedef struct Player_ {
-	float x;
-	float y;
-	float a;
-} Player;
-
-const uint16_t rect_w = LCD_WIDTH / (MAP_WIDTH*2);
-const uint16_t rect_h = LCD_WIDTH / MAP_HEIGHT;
-
 Player player;
+
+const uint16_t rect_w = LCD_WIDTH / (MAP_WIDTH);
+const uint16_t rect_h = LCD_HEIGHT / MAP_HEIGHT;
 
 layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
 layer1_pixel *const buffer = (uint32_t *)SDRAM_BASE_ADDRESS + (LCD_HEIGHT * LCD_WIDTH * sizeof(layer1_pixel));
 
 void draw();
-std::vector<uint32_t> texture_column(Texture *texture, const size_t texid, const size_t texcoord, const size_t column_height);
+uint16_t wall_x_texcoord(const float x, const float y, Texture &texture);
 
 int main(void) {
 	/* init timers. */
@@ -81,59 +76,67 @@ void lcd_tft_isr(void) {
 	LTDC_SRCR |= LTDC_SRCR_VBR;
 }
 
-void draw() {
-	fill(buffer, WHITE);
-	map_t pixel;
-	// Draw map
-	for(uint16_t j = 0; j < MAP_HEIGHT; j++) {
-		for(uint16_t i = 0; i < MAP_WIDTH; i++) {
-			pixel = map.get(i,j);
-			if(pixel != ' ') {
-				uint16_t rect_x  = i * rect_w;
-				uint16_t rect_y = j * rect_h;
+// Takes in drawing coordinates (x,y) and texture,
+// Returns x-coordinate of the texture
+uint16_t wall_x_texcoord(const float x, const float y, Texture &texture) {
+	float hitx = x - floor(x + .5f); // hitx and hity contain (signed) fractional parts of x and y
+	float hity = y - floor(y + .5f); // they vary between -0.5 and +0.5, and one of them is supposed to be very close to 0
+	uint16_t tex = hitx * walltext.h;
 
-				size_t texid = pixel - '0'; // who needs parseInt()
-
-				draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, walltext.data[walltext.h*texid]);
-			}
-		}
+	if(std::abs(hity) > std::abs(hitx)) { // we need to determine whether we hit a "vertical" or a "horizontal" wall
+		tex = hity * texture.h;
 	}
 
+	if(tex < 0) { // x_texcoord can be negative, let's fix that
+		tex += texture.h;
+	}
+
+	return tex;
+}
+
+void draw() {
+	fill(buffer, WHITE);
+
+	// Draw map
+	// for(uint16_t j = 0; j < MAP_HEIGHT; j++) {
+	// 	for(uint16_t i = 0; i < MAP_WIDTH; i++) {
+	// 		if(!map.isEmpty(i,j)) {
+	// 			uint16_t rect_x  = i * rect_w;
+	// 			uint16_t rect_y = j * rect_h;
+
+	// 			size_t texid = map.get(i,j);
+
+	// 			draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, walltext.data[walltext.h * texid]);
+	// 		}
+	// 	}
+	// }
+
 	// Draw cone of vision
-	for(uint16_t i = 0; i < LCD_WIDTH/2; i++) {
-		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH/2);
+	for(uint16_t i = 0; i < LCD_WIDTH; i++) {
+		float angle = player.a - FOV/2 + FOV * i / float(LCD_WIDTH);
 		for(float c = 0; c < 20; c+=.05) {
 			float cx = player.x + c * cosf(angle);
 			float cy = player.y + c * sinf(angle);
 
 			uint16_t pix_x = (uint16_t) cx * rect_w;
 			uint16_t pix_y = (uint16_t) cy * rect_h;
-			write_pixel(buffer, pix_x, pix_y, SILVER);
+			// write_pixel(buffer, pix_x, pix_y, RED);
 
-			pixel = map.get(int(cx), int(cy));
-			if(pixel != ' ') {
+			if(!map.isEmpty(cx, cy)) {
 				// Our ray intersects a wall, so let's render it
 				uint16_t column_height = (uint16_t) (LCD_HEIGHT/(c*cosf(angle-player.a)));
-				size_t texid = pixel - '0';
+				size_t texid = map.get(cx, cy);
 
-				float hitx = cx - floor(cx + .5f);
-				float hity = cy - floor(cy + .5f);
-				uint16_t x_texcoord = hitx * walltext.h;
+				uint16_t x_texcoord = wall_x_texcoord(cx, cy, walltext);
 
-				if(std::abs(hity) > std::abs(hitx)) {
-					x_texcoord = hity * walltext.h;
-				}
-
-				if(x_texcoord < 0) {
-					x_texcoord += walltext.h;
-				}
-
-				std::vector<uint32_t> column = texture_column(&walltext, texid, x_texcoord, column_height);
-				pix_x = LCD_WIDTH/2+i;
+				std::vector<uint32_t> column = walltext.GetColumnScaled(texid, x_texcoord, column_height);
+				pix_x = i;
 				
 				for(size_t j = 0; j < column_height; j++) {
 					pix_y = j + LCD_HEIGHT/2 - column_height/2;
-					write_pixel(buffer, pix_x, pix_y, column[j]);
+					if(pix_y >= 0 && pix_y < (int) LCD_HEIGHT) {
+						write_pixel(buffer, pix_x, pix_y, column[j]);
+					}
 				}
 
 				break;
@@ -141,27 +144,4 @@ void draw() {
 		}
 	}
 
-	const size_t texid = 4; // draw the 4th texture on the screen
-	for(size_t i = 0; i < walltext.h; i++) {
-		for(size_t j = 0; j < walltext.h; j++) {
-			write_pixel(buffer, i, j, walltext.data[i+texid*walltext.h + j*walltext.h*walltext.count]);
-		}
-	}
-
-}
-
-uint32_t map_to_color(map_t square) {
-	
-}
-
-std::vector<uint32_t> texture_column(Texture *texture, const size_t texid, const size_t texcoord, const size_t column_height) {
-	std::vector<uint32_t> column(column_height);
-	for(size_t y = 0; y < column_height; y++) {
-		size_t pix_x = texid * texture->h + texcoord;
-		size_t pix_y = (y * texture->h)/ column_height;
-
-		column[y] = texture->data[pix_x + pix_y * texture->w];
-	}
-
-	return column;
 }
