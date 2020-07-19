@@ -1,21 +1,20 @@
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
+#include <vector>
+#include <math.h>
+
 #include "clock.h"
 #include "console.h"
 #include "lcd-spi.h"
 #include "sdram.h"
 #include "lcd-dma.h"
-#include "vector"
+
+#include "map.h"
+
 #include "walltext.h"
 
-#include <math.h>
-
-typedef char map_t;
-#define MAP_WIDTH 	16
-#define MAP_HEIGHT 	16
-#define MAX_TEXTURE_SIZE 20480
 #define PI 3.1415
 #define FOV PI/3.f
+
+Map map;
 
 typedef struct Player_ {
 	float x;
@@ -30,23 +29,6 @@ Player player;
 
 layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
 layer1_pixel *const buffer = (uint32_t *)SDRAM_BASE_ADDRESS + (LCD_HEIGHT * LCD_WIDTH * sizeof(layer1_pixel));
-
-const map_t map[] =    "0000222222220000"\
-                       "1              0"\
-                       "1      11111   0"\
-                       "1     0        0"\
-                       "0     0  1110000"\
-                       "0     3        0"\
-                       "0   10000      0"\
-                       "0   3   11100  0"\
-                       "5   4   0      0"\
-                       "5   4   1  00000"\
-                       "0       1      0"\
-                       "2       1      0"\
-                       "0       0      0"\
-                       "0 0000000      0"\
-                       "0              0"\
-                       "0002222222200000";
 
 void draw();
 uint32_t map_to_color(map_t pixel);
@@ -106,7 +88,7 @@ void draw() {
 	// Draw map
 	for(uint16_t j = 0; j < MAP_HEIGHT; j++) {
 		for(uint16_t i = 0; i < MAP_WIDTH; i++) {
-			pixel = map[i+j*MAP_WIDTH];
+			pixel = map.get(i,j);
 			if(pixel != ' ') {
 				uint16_t rect_x  = i * rect_w;
 				uint16_t rect_y = j * rect_h;
@@ -127,7 +109,7 @@ void draw() {
 			uint16_t pix_y = (uint16_t) cy * rect_h;
 			write_pixel(buffer, pix_x, pix_y, SILVER);
 
-			pixel = map[int(cx) + int(cy) * MAP_WIDTH];
+			pixel = map.get(int(cx), int(cy));
 			if(pixel != ' ') {
 				// Our ray intersects a wall, so let's render it
 				uint16_t column_height = (uint16_t) (LCD_HEIGHT/(c*cosf(angle-player.a)));

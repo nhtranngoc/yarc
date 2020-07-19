@@ -42,13 +42,14 @@ add_custom_target(libopencm3 make WORKING_DIRECTORY ${OPENCM3_DIR})
 
 # SRC
 include_directories(../include)
-include_directories(../lcd)
+include_directories(../include/lcd)
 include_directories(../assets)
 
 file(GLOB USER_SOURCES 
     ./*.c 
     ./*.cpp
     ./lcd/*.c
+    ./lcd/*.cpp
     ${CMAKE_SOURCE_DIR}/assets/*.h)
 
 add_executable(${PROJECT_NAME}.elf ${USER_SOURCES})
