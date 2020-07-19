@@ -28,6 +28,6 @@ class Map {
     public:
     uint16_t w, h;
     Map() : w(MAP_WIDTH), h(MAP_HEIGHT) {}
-    inline uint32_t get(const uint16_t x, const uint16_t y) {return map_data[x+y*w] - '0';}
+    inline uint32_t get(const uint16_t x, const uint16_t y) {return map_data[x+y*w];}
     inline bool isEmpty(const uint16_t x, const uint16_t y) {return map_data[x+y*w] == ' ';}
 };
