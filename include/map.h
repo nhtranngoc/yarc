@@ -5,7 +5,6 @@
 #define MAP_WIDTH 	16
 #define MAP_HEIGHT 	16
 
-
 typedef uint8_t map_t;
 static const map_t map_data[] =    "0000222222220000"\
                        "1              0"\

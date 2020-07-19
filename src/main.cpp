@@ -31,8 +31,7 @@ layer1_pixel *const raycaster_canvas = (uint32_t *)SDRAM_BASE_ADDRESS;
 layer1_pixel *const buffer = (uint32_t *)SDRAM_BASE_ADDRESS + (LCD_HEIGHT * LCD_WIDTH * sizeof(layer1_pixel));
 
 void draw();
-uint32_t map_to_color(map_t pixel);
-std::vector<uint32_t> texture_column(tImage *texture, const size_t texid, const size_t texcoord, const size_t column_height);
+std::vector<uint32_t> texture_column(Texture *texture, const size_t texid, const size_t texcoord, const size_t column_height);
 
 int main(void) {
 	/* init timers. */
@@ -93,7 +92,9 @@ void draw() {
 				uint16_t rect_x  = i * rect_w;
 				uint16_t rect_y = j * rect_h;
 
-				draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, map_to_color(pixel));
+				size_t texid = pixel - '0'; // who needs parseInt()
+
+				draw_rectangle(buffer, rect_x, rect_y, rect_w, rect_h, walltext.data[walltext.h*texid]);
 			}
 		}
 	}
@@ -117,14 +118,14 @@ void draw() {
 
 				float hitx = cx - floor(cx + .5f);
 				float hity = cy - floor(cy + .5f);
-				uint16_t x_texcoord = hitx * walltext.height;
+				uint16_t x_texcoord = hitx * walltext.h;
 
 				if(std::abs(hity) > std::abs(hitx)) {
-					x_texcoord = hity * walltext.height;
+					x_texcoord = hity * walltext.h;
 				}
 
 				if(x_texcoord < 0) {
-					x_texcoord += walltext.height;
+					x_texcoord += walltext.h;
 				}
 
 				std::vector<uint32_t> column = texture_column(&walltext, texid, x_texcoord, column_height);
@@ -141,27 +142,25 @@ void draw() {
 	}
 
 	const size_t texid = 4; // draw the 4th texture on the screen
-	const size_t walltext_cnt = walltext.width/walltext.height;	
-	for(size_t i = 0; i < walltext.height; i++) {
-		for(size_t j = 0; j < walltext.height; j++) {
-			write_pixel(buffer, i, j, walltext.data[i+texid*walltext.height + j*walltext.height*walltext_cnt]);
+	for(size_t i = 0; i < walltext.h; i++) {
+		for(size_t j = 0; j < walltext.h; j++) {
+			write_pixel(buffer, i, j, walltext.data[i+texid*walltext.h + j*walltext.h*walltext.count]);
 		}
 	}
 
 }
 
 uint32_t map_to_color(map_t square) {
-	size_t texid = square - '0'; // who needs parseInt()
-	return walltext.data[walltext.height*texid];
+	
 }
 
-std::vector<uint32_t> texture_column(tImage *texture, const size_t texid, const size_t texcoord, const size_t column_height) {
+std::vector<uint32_t> texture_column(Texture *texture, const size_t texid, const size_t texcoord, const size_t column_height) {
 	std::vector<uint32_t> column(column_height);
 	for(size_t y = 0; y < column_height; y++) {
-		size_t pix_x = texid * texture->height + texcoord;
-		size_t pix_y = (y * texture->height)/ column_height;
+		size_t pix_x = texid * texture->h + texcoord;
+		size_t pix_y = (y * texture->h)/ column_height;
 
-		column[y] = texture->data[pix_x + pix_y * texture->width];
+		column[y] = texture->data[pix_x + pix_y * texture->w];
 	}
 
 	return column;
